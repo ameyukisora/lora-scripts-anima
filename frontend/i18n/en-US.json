@@ -952,6 +952,10 @@
 		"refresh": "Refresh from current settings"
 	},
 	"lrPreview": {
+		"internalNote": "This optimizer adjusts its learning rate during training; an external scheduler cannot predict its curve.",
+		"unsupportedNote": "Curve preview is unavailable for this scheduler.",
+		"invalidNote": "Check learning rate, warmup and scheduler parameters. constant requires zero warmup; polynomial requires a base learning rate above 1e-7.",
+		"adaptiveNote": "The curve shows the external scheduler rate; the optimizer also adjusts the update scale based on training state.",
 		"open": "View learning-rate curve",
 		"title": "Learning-rate curve preview",
 		"subtitle": "Drawn from the current sd-scripts settings",
@@ -975,7 +979,7 @@
 		"chartAlt": "Actual learning-rate curve for the current configuration",
 		"noStepNote": "No total step count is available, so the x-axis shows 0–100% training progress.",
 		"estimatedWarmupNote": "No total step count is available; warmup is set to {steps}, so the curve renders it as 10% of training progress.",
-		"footnote": "The y-axis and hover readout show the selected component's actual learning rate."
+		"footnote": "The y-axis and hover readout show the scheduler learning rate for the displayed component."
 	},
 	"timestepOffset": {
 		"title": "Per-subset sampling offsets",

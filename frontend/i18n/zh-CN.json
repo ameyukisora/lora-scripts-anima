@@ -952,6 +952,10 @@
 		"refresh": "按当前参数刷新"
 	},
 	"lrPreview": {
+		"internalNote": "该优化器在训练过程中自行调整学习率，无法根据外部调度器预先绘制曲线。",
+		"unsupportedNote": "当前调度器不支持曲线预览。",
+		"invalidNote": "当前参数无法生成有效曲线：请检查学习率、预热和调度参数。constant 不允许非零预热，polynomial 的基础学习率必须大于 1e-7。",
+		"adaptiveNote": "曲线仅表示外部调度学习率；优化器还会根据训练状态调整实际更新尺度。",
 		"open": "查看学习率曲线",
 		"title": "学习率曲线预览",
 		"subtitle": "基于当前 sd-scripts 配置绘制",
@@ -972,10 +976,10 @@
 		"estimatedWarmupEnd": "预热结束（按 10% 预览）",
 		"stepsUnit": "步",
 		"stepLabel": "{count}步",
-		"chartAlt": "当前配置的实际学习率曲线",
+		"chartAlt": "当前配置的调度学习率曲线",
 		"noStepNote": "未读取到总步数，横轴按 0–100% 训练进度显示。",
 		"estimatedWarmupNote": "未读取到总步数；预热填写为 {steps}，曲线暂按训练进度的 10% 渲染。",
-		"footnote": "纵轴和悬浮读数显示当前分量的实际学习率。"
+		"footnote": "纵轴和悬浮读数显示当前分量的调度学习率。"
 	},
 	"timestepOffset": {
 		"title": "子集采样偏移",

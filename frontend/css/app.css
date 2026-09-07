@@ -1892,7 +1892,6 @@ body.panel-resizing * { cursor: col-resize !important; user-select: none !import
   width: 100%; margin-top: 7px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
 .lr-preview-entry .btn { display: inline-flex; align-items: center; gap: 6px; }
-.lr-preview-entry .field-hint { width: auto; margin: 0; }
 .modal-workbench--lr {
   --modal-workbench-width: 60rem;
 }
