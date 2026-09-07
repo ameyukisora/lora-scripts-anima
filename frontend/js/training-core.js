@@ -64,6 +64,9 @@ window.trainingCoreMixin = {
   timestepPreviewData: null,
   timestepPreviewScope: 'base',
   timestepPreviewPreviousFocus: null,
+  lrPreviewOpen: false,
+  lrPreviewData: null,
+  lrPreviewPreviousFocus: null,
   lycorisModalOpen: false,
   lycorisModalPreviousFocus: null,
   subsetTimestepOffsetDrafts: {},
@@ -818,6 +821,7 @@ window.trainingCoreMixin = {
         'stepEstimate.selectDataset',
         'Select a dataset directory to calculate steps'
       );
+      if (this.lrPreviewOpen) this.refreshLrPreview();
       return;
     }
 
@@ -843,6 +847,7 @@ window.trainingCoreMixin = {
         'stepEstimate.selectDataset',
         'Select a dataset directory to calculate steps'
       );
+      if (this.lrPreviewOpen) this.refreshLrPreview();
       return null;
     }
 
@@ -863,12 +868,14 @@ window.trainingCoreMixin = {
       if (!response.ok || result.status !== 'success' || !result.data) {
         this.stepEstimate = null;
         this._setStepEstimateErrorFromResult(result);
+        if (this.lrPreviewOpen) this.refreshLrPreview();
         return null;
       }
       this.stepEstimate = result.data;
       this.stepEstimateError = null;
       this._reconcileSubsetTimestepOffsets();
       this._refreshSubsetTimestepEditor();
+      if (this.lrPreviewOpen) this.refreshLrPreview();
       return result.data;
     } catch (error) {
       if (requestSeq !== this._stepEstimateRequestSeq) return null;
@@ -878,6 +885,7 @@ window.trainingCoreMixin = {
         'Request failed: {message}',
         { message: error.message }
       );
+      if (this.lrPreviewOpen) this.refreshLrPreview();
       return null;
     } finally {
       if (requestSeq === this._stepEstimateRequestSeq) this.stepEstimateLoading = false;
@@ -1387,6 +1395,21 @@ window.trainingCoreMixin = {
     const field = defs.find(item => item.key === 'lycoris_algo');
     const option = (field?.options || []).find(item => item.v === value);
     return option ? this.t(option.dk, option.l || value) : (value || '');
+  },
+
+  _fieldOptionLabel(fieldKey, value, fallback = '') {
+    const field = this._fieldDefinition(fieldKey, this.form.model_train_type || 'anima-lora');
+    if (!field) return String(value ?? fallback ?? '');
+    const options = [];
+    if (Array.isArray(field.options)) options.push(...field.options);
+    if (Array.isArray(field.groups)) {
+      field.groups.forEach(group => {
+        if (Array.isArray(group.options)) options.push(...group.options);
+      });
+    }
+    const option = options.find(item => String(item.v) === String(value));
+    if (!option) return String(value ?? fallback ?? '');
+    return this.t(option.dk, option.l || String(value ?? fallback ?? ''));
   },
 
   _openManagedModal(stateKey, focusKey, focusSelector, afterOpen) {
@@ -2199,6 +2222,13 @@ window.trainingCoreMixin = {
           </button>
           <span class="field-hint" x-text="t('timestepPreview.entryHint')"></span>
         </div>`;
+      case 'lr_scheduler':
+        return `<div class="lr-preview-entry" x-show="form && form.model_train_type !== 'krea2-lora'">
+          <button type="button" class="btn btn-ghost btn-sm" @click="openLrPreview()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19V9"/><path d="M10 19V5"/><path d="M16 19v-7"/><path d="M22 19V3"/></svg>
+            <span x-text="t('lrPreview.open')">View learning-rate curve</span>
+          </button>
+        </div>`;
       case 'attn_mode':
         return `<div x-show="faStatus && !faStatus.installed && form.attn_mode==='flash'" class="field-hint field-hint-warn">${this.t('environment.envHintFlashNotInstalled')}</div>`
              + `<div x-show="xfStatus && !xfStatus.installed && form.attn_mode==='xformers'" class="field-hint field-hint-warn">${this.t('environment.envHintXformersNotInstalled')}</div>`;
@@ -2864,6 +2894,320 @@ window.trainingCoreMixin = {
 
   refreshTimestepPreview() {
     this.timestepPreviewData = this._buildTimestepPreview(null, this.timestepPreviewScope);
+  },
+
+  _lrPreviewNumber(value, fallback) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  },
+
+  _lrPreviewWarmup(source, totalSteps) {
+    const raw = this._lrPreviewNumber(source.lr_warmup_steps, 0);
+    if (!(raw > 0)) {
+      return { raw, fraction: 0, label: '', visible: false };
+    }
+    const stepsUnit = this.t('lrPreview.stepsUnit', 'steps');
+    if (raw < 1) {
+      return {
+        raw,
+        fraction: Math.max(0, Math.min(1, raw)),
+        label: this._lrPreviewFormatPercent(raw),
+        visible: true,
+      };
+    }
+    if (totalSteps > 0) {
+      const fraction = Math.max(0, Math.min(1, raw / totalSteps));
+      return {
+        raw,
+        fraction,
+        label: `${Math.round(raw).toLocaleString()} ${stepsUnit} (${this._lrPreviewFormatPercent(fraction)})`,
+        visible: true,
+      };
+    }
+    return {
+      raw,
+      fraction: 0.1,
+      label: `${Math.round(raw).toLocaleString()} ${stepsUnit} (${this.t('lrPreview.estimatedWarmup', 'previewed as 10%')})`,
+      visible: true,
+      estimated: true,
+    };
+  },
+
+  _lrPreviewFormatPercent(value) {
+    const pct = Math.max(0, Number(value) || 0) * 100;
+    const rounded = Math.round(pct * 10) / 10;
+    return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}%`;
+  },
+
+  _lrPreviewFormatRate(value) {
+    const rate = Number(value);
+    if (!Number.isFinite(rate) || rate < 0) return '—';
+    if (rate === 0) return '0';
+    return rate.toExponential(3)
+      .replace(/(\.\d*?[1-9])0+e/, '$1e')
+      .replace(/\.0+e/, 'e')
+      .replace('e-0', 'e-');
+  },
+
+  _buildLrPreview(values) {
+    const source = values || this.form || {};
+    const scheduler = String(source.lr_scheduler || 'constant');
+    const schedulerLabel = this._fieldOptionLabel('lr_scheduler', scheduler, scheduler);
+    const optimizerLabel = this._fieldOptionLabel('optimizer_type', source.optimizer_type, source.optimizer_type);
+    const baseRateText = String(source.learning_rate ?? '').trim();
+    const unetRateText = String(source.unet_lr ?? '').trim();
+    const baseRateDisplay = baseRateText || '—';
+    const trainUnet = source.network_train_text_encoder_only !== true;
+    const trainTextEncoder = source.network_train_unet_only !== true;
+    const textEncoderRateText = String(source.text_encoder_lr ?? '').trim();
+    const chartComponent = trainUnet
+      ? this.t('lrPreview.unetComponent', 'U-Net / DiT')
+      : (trainTextEncoder ? this.t('lrPreview.textEncoderComponent', 'Text Encoder') : this.t('lrPreview.learningRate'));
+    const chartRateText = trainUnet
+      ? (unetRateText || baseRateText)
+      : (textEncoderRateText || baseRateText);
+    const chartRate = this._lrPreviewNumber(chartRateText, 0);
+    const totalSteps = this.stepEstimate && Number(this.stepEstimate.total_steps || 0) > 0
+      ? Number(this.stepEstimate.total_steps || 0)
+      : 0;
+    const warmup = this._lrPreviewWarmup(source, totalSteps);
+    const cycles = String(source.lr_scheduler_num_cycles ?? '').trim();
+    const power = String(source.lr_scheduler_power ?? '').trim();
+    const pointCount = 160;
+    const yUpper = 1.08;
+    const warmupFraction = warmup.fraction;
+    const evaluateMultiplier = progress => {
+      const clamped = Math.max(0, Math.min(1, progress));
+      const warmupEnd = Math.max(0, Math.min(1, warmupFraction));
+      const ramp = warmupEnd > 0 ? Math.min(1, clamped / warmupEnd) : 1;
+      if (scheduler === 'constant') return 1;
+      if (warmupEnd >= 1) return ramp;
+      if (clamped < warmupEnd) return ramp;
+      const decayProgress = Math.max(0, Math.min(1, (clamped - warmupEnd) / Math.max(1e-9, 1 - warmupEnd)));
+      switch (scheduler) {
+        case 'constant_with_warmup':
+          return 1;
+        case 'linear':
+          return Math.max(0, 1 - decayProgress);
+        case 'cosine':
+          return 0.5 * (1 + Math.cos(Math.PI * decayProgress));
+        case 'cosine_with_restarts': {
+          if (clamped >= 1) return 0;
+          const numCycles = Math.max(1, this._lrPreviewNumber(source.lr_scheduler_num_cycles, 1));
+          const cycleProgress = (decayProgress * numCycles) % 1;
+          return 0.5 * (1 + Math.cos(Math.PI * cycleProgress));
+        }
+        case 'polynomial': {
+          const decayPower = Math.max(0.1, this._lrPreviewNumber(source.lr_scheduler_power, 1));
+          return Math.max(0, (1 - decayProgress) ** decayPower);
+        }
+        default:
+          return Math.max(0, 1 - decayProgress);
+      }
+    };
+
+    const valuesList = [];
+    for (let i = 0; i < pointCount; i += 1) {
+      const progress = i / (pointCount - 1);
+      valuesList.push(evaluateMultiplier(progress));
+    }
+
+    const buildPath = series => {
+      const coords = series.map((val, idx) => {
+        const x = (idx / (pointCount - 1)) * 100;
+        const y = 100 - (val / yUpper) * 100;
+        return `${x.toFixed(2)},${Math.max(0, y).toFixed(2)}`;
+      });
+      return {
+        linePath: `M ${coords.join(' L ')}`,
+        areaPath: `M 0,100 L ${coords.join(' L ')} L 100,100 Z`,
+      };
+    };
+
+    const curvePaths = buildPath(valuesList);
+    const baselineY = (100 - (100 / yUpper)).toFixed(2);
+    const warmupX = warmup.visible ? (warmup.fraction * 100).toFixed(2) : null;
+    const axisLabels = [0, 0.25, 0.5, 0.75, 1].map(progress => {
+      if (totalSteps > 0) {
+        return this.t('lrPreview.stepLabel', '{count} steps')
+          .replace('{count}', Math.round(progress * totalSteps).toLocaleString());
+      }
+      return this._lrPreviewFormatPercent(progress);
+    });
+    const notes = [];
+    if (!totalSteps) {
+      notes.push(this.t('lrPreview.noStepNote', 'Total steps are unavailable, so the x-axis shows 0–100% training progress.'));
+      if (warmup.estimated) {
+        notes.push(this.t('lrPreview.estimatedWarmupNote', 'Warmup is set to {steps}; the curve renders it as 10% of training progress for this preview.')
+          .replace('{steps}', `${Math.round(warmup.raw).toLocaleString()} ${this.t('lrPreview.stepsUnit', 'steps')}`));
+      }
+    }
+
+    return {
+      scheduler,
+      schedulerLabel,
+      optimizerLabel,
+      baseRateText: baseRateDisplay,
+      chartLabel: `${this.t('lrPreview.learningRateAxis', 'Learning rate')} · ${chartComponent}`,
+      totalSteps,
+      totalStepsText: totalSteps > 0 ? Number(totalSteps).toLocaleString() : '',
+      warmupVisible: warmup.visible,
+      warmupLabel: warmup.label,
+      warmupX,
+      warmupEstimated: !!warmup.estimated,
+      cycles: scheduler === 'cosine_with_restarts' ? cycles : '',
+      power: scheduler === 'polynomial' ? power : '',
+      notes,
+      curveValues: valuesList,
+      chartRate,
+      yTicks: [1, 0.75, 0.5, 0.25, 0].map((value, index) => ({
+        label: chartRate > 0 ? this._lrPreviewFormatRate(chartRate * value) : value.toFixed(index === 4 ? 0 : 2),
+        y: ((1 - value / yUpper) * 100).toFixed(2),
+      })),
+      currentLinePath: curvePaths.linePath,
+      currentAreaPath: curvePaths.areaPath,
+      baselineLinePath: `M 0,${baselineY} L 100,${baselineY}`,
+      axisLabels,
+      chartAlt: this.t(
+        'lrPreview.chartAlt',
+        'Learning-rate curve for the current configuration'
+      ),
+    };
+  },
+
+  _buildLrChartHtml(data) {
+    if (!data) return '';
+    const esc = value => String(value == null ? '' : value)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const t = (key, fallback) => {
+      const translated = typeof this.t === 'function' ? this.t(key) : '';
+      return esc(translated || fallback);
+    };
+    const yTicks = (data.yTicks || []).map(tick =>
+      `<span class="lr-ytick-label" style="bottom:${(100 - parseFloat(tick.y)).toFixed(1)}%">${esc(tick.label)}</span>`
+    ).join('');
+    const gridH = (data.yTicks || []).map(tick =>
+      `<line x1="0" y1="${esc(tick.y)}" x2="100" y2="${esc(tick.y)}" class="lr-grid-h" />`
+    ).join('');
+    const baselineCurve = data.baselineLinePath
+      ? `<path class="lr-curve-baseline" d="${esc(data.baselineLinePath)}"></path>` : '';
+    const warmupEndLabel = data.warmupEstimated
+      ? t('lrPreview.estimatedWarmupEnd', 'Warmup end (10% preview)')
+      : t('lrPreview.warmupEnd', 'Warmup end');
+    const warmupLine = data.warmupVisible && data.warmupX !== null
+      ? `<div class="lr-warmup-line" style="left:${esc(data.warmupX)}%"><span class="lr-warmup-tag">${warmupEndLabel}</span></div>`
+      : '';
+    const axisLabels = data.axisLabels || ['0%', '25%', '50%', '75%', '100%'];
+    return `
+    <div class="lr-chart-box">
+      <div class="lr-inspect-bar">
+        <span class="lr-inspect-title">${esc(data.chartLabel || t('lrPreview.learningRateAxis', 'Learning rate'))}</span>
+        <span class="lr-inspect-value" aria-live="polite">
+          <b class="lr-hover-x"></b><small>·</small><span class="lr-hover-value"></span>
+        </span>
+      </div>
+      <div class="lr-chart-yaxis">
+        <div class="lr-yaxis-ticks">${yTicks}</div>
+      </div>
+      <div class="lr-preview-chart" role="img" aria-label="${esc(data.chartAlt)}">
+        <svg class="lr-grid-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+          ${gridH}
+          <line x1="25" y1="0" x2="25" y2="100" class="lr-grid-v" />
+          <line x1="50" y1="0" x2="50" y2="100" class="lr-grid-v" />
+          <line x1="75" y1="0" x2="75" y2="100" class="lr-grid-v" />
+        </svg>
+        <svg class="lr-preview-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+          ${baselineCurve}
+          <path class="lr-curve-area" d="${esc(data.currentAreaPath)}"></path>
+          <path class="lr-curve-current" d="${esc(data.currentLinePath)}"></path>
+        </svg>
+        ${warmupLine}
+        <div class="lr-hover-indicator" style="display:none"></div>
+      </div>
+    </div>
+    <div class="lr-preview-axis">
+      <span class="axis-left">${esc(axisLabels[0])}</span>
+      <div class="axis-mid-ticks"><span>${esc(axisLabels[1])}</span><span>${esc(axisLabels[2])}</span><span>${esc(axisLabels[3])}</span></div>
+      <span class="axis-right">${esc(axisLabels[4])}</span>
+    </div>
+    <div class="lr-preview-legend">
+      <span><i class="legend-current"></i><span>${t('lrPreview.currentCurve', 'Current curve')}</span></span>
+      <span><i class="legend-baseline"></i><span>${t('lrPreview.baseReference', 'Base ×1.0')}</span></span>
+    </div>`;
+  },
+
+  onLrChartHover(event, previewData) {
+    if (!event || !event.currentTarget) return;
+    const holder = event.currentTarget;
+    const chart = holder.querySelector ? holder.querySelector('.lr-preview-chart') : null;
+    if (!chart) return;
+    const rect = chart.getBoundingClientRect();
+    if (!rect.width) return;
+    if (event.clientX < rect.left || event.clientX > rect.right
+      || event.clientY < rect.top || event.clientY > rect.bottom) {
+      this.onLrChartLeave(event);
+      return;
+    }
+    const relX = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    const data = previewData || this.lrPreviewData;
+    if (!data) return;
+    const values = Array.isArray(data.curveValues) ? data.curveValues : [];
+    const pointCount = values.length || 1;
+    const idx = Math.min(pointCount - 1, Math.round(relX * (pointCount - 1)));
+    const progress = pointCount > 1 ? idx / (pointCount - 1) : relX;
+    const value = values.length ? (values[Math.min(values.length - 1, idx)] || 0) : 0;
+    const hoverLine = chart.querySelector('.lr-hover-indicator');
+    if (hoverLine) {
+      hoverLine.style.left = `${(relX * 100).toFixed(2)}%`;
+      hoverLine.style.display = 'block';
+    }
+    const xEl = holder.querySelector('.lr-hover-x');
+    const vEl = holder.querySelector('.lr-hover-value');
+    const valueBox = holder.querySelector('.lr-inspect-value');
+    if (xEl) {
+      if (data.totalSteps > 0) {
+        const step = Math.round(progress * data.totalSteps);
+        xEl.textContent = `${step.toLocaleString()} / ${data.totalStepsText}`;
+      } else {
+        xEl.textContent = `${Math.round(progress * 100)}%`;
+      }
+    }
+    if (vEl) {
+      const rate = (Number(data.chartRate) || 0) * value;
+      vEl.textContent = rate > 0
+        ? `${this._lrPreviewFormatRate(rate)} · ${value.toFixed(2)}×`
+        : `${value.toFixed(2)}×`;
+    }
+    if (valueBox) valueBox.classList.add('is-visible');
+  },
+
+  onLrChartLeave(event) {
+    if (event && event.currentTarget && event.currentTarget.querySelector) {
+      const holder = event.currentTarget;
+      const hoverLine = holder.querySelector('.lr-hover-indicator');
+      if (hoverLine) hoverLine.style.display = 'none';
+      const valueBox = holder.querySelector('.lr-inspect-value');
+      if (valueBox) valueBox.classList.remove('is-visible');
+    }
+  },
+
+  openLrPreview() {
+    if (String(this.form?.model_train_type || '') === 'krea2-lora') return;
+    this.lrPreviewData = this._buildLrPreview(null);
+    this._openManagedModal('lrPreviewOpen', 'lrPreviewPreviousFocus', '.lr-preview-close');
+  },
+
+  closeLrPreview() {
+    this._closeManagedModal('lrPreviewOpen', 'lrPreviewPreviousFocus');
+  },
+
+  refreshLrPreview() {
+    if (String(this.form?.model_train_type || '') === 'krea2-lora') {
+      this.closeLrPreview();
+      return;
+    }
+    this.lrPreviewData = this._buildLrPreview(null);
   },
 
   _getOutputPathHint(dataKey) {
@@ -3838,6 +4182,18 @@ window.trainingCoreMixin = {
     if (key === 'caption_dropout_rate' && this.form.model_train_type === 'sdxl-lora' && Number(value) > 0 && this.form['cache_text_encoder_outputs']) {
       this.form['cache_text_encoder_outputs'] = false;
       this.form['cache_text_encoder_outputs_to_disk'] = false;
+    }
+
+    if (this.lrPreviewOpen && [
+      'model_train_type', 'optimizer_type', 'learning_rate', 'unet_lr', 'text_encoder_lr',
+      'lr_scheduler', 'lr_warmup_steps', 'lr_scheduler_num_cycles', 'lr_scheduler_power',
+      'network_train_unet_only', 'network_train_text_encoder_only', 'adafactor_relative_step'
+    ].includes(key)) {
+      if (key === 'model_train_type' && value === 'krea2-lora') {
+        this.closeLrPreview();
+      } else {
+        this.refreshLrPreview();
+      }
     }
 
     // Clear error for this field on change and re-render to update UI
