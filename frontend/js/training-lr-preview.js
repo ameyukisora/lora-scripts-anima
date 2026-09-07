@@ -217,13 +217,14 @@ window.trainingLrPreviewMixin = {
       : '';
     const axisLabels = data.axisLabels || ['0%', '25%', '50%', '75%', '100%'];
     return `
-    <div class="lr-chart-box">
       <div class="lr-inspect-bar">
-        <span class="lr-inspect-title">${esc(data.chartLabel || t('lrPreview.learningRateAxis', 'Learning rate'))}</span>
-        <span class="lr-inspect-value" aria-live="polite">
-          <b class="lr-hover-x"></b><small>·</small><span class="lr-hover-value"></span>
-        </span>
+        <div class="lr-inspect-value">
+          <span><small>${t('lrPreview.position', 'Step / progress')}</small><b class="lr-hover-x">—</b></span>
+          <span title="${esc(data.chartLabel)}"><small>${t('lrPreview.learningRateAxis', 'Learning rate')}</small><b class="lr-hover-value">—</b></span>
+          <span><small>${t('lrPreview.multiplier', 'Multiplier')}</small><b class="lr-hover-multiplier">—</b></span>
+        </div>
       </div>
+    <div class="lr-chart-box">
       <div class="lr-chart-yaxis">
         <div class="lr-yaxis-ticks">${yTicks}</div>
       </div>
@@ -278,22 +279,23 @@ window.trainingLrPreviewMixin = {
     }
     const xEl = holder.querySelector('.lr-hover-x');
     const vEl = holder.querySelector('.lr-hover-value');
-    const valueBox = holder.querySelector('.lr-inspect-value');
+    const multiplierEl = holder.querySelector('.lr-hover-multiplier');
+    const setText = (element, text) => {
+      if (element && element.textContent !== text) element.textContent = text;
+    };
     if (xEl) {
       if (data.totalSteps > 0) {
         const step = Math.round(progress * data.totalSteps);
-        xEl.textContent = `${step.toLocaleString()} / ${data.totalStepsText}`;
+        setText(xEl, `${step.toLocaleString()} / ${data.totalStepsText}`);
       } else {
-        xEl.textContent = `${Math.round(progress * 100)}%`;
+        setText(xEl, `${Math.round(progress * 100)}%`);
       }
     }
     if (vEl) {
       const rate = (Number(data.chartRate) || 0) * value;
-      vEl.textContent = rate > 0
-        ? `${this._lrPreviewFormatRate(rate)} · ${value.toFixed(2)}×`
-        : `${value.toFixed(2)}×`;
+      setText(vEl, this._lrPreviewFormatRate(rate));
     }
-    if (valueBox) valueBox.classList.add('is-visible');
+    setText(multiplierEl, `${value.toFixed(2)}×`);
   },
 
   onLrChartLeave(event) {
@@ -301,8 +303,6 @@ window.trainingLrPreviewMixin = {
       const holder = event.currentTarget;
       const hoverLine = holder.querySelector('.lr-hover-indicator');
       if (hoverLine) hoverLine.style.display = 'none';
-      const valueBox = holder.querySelector('.lr-inspect-value');
-      if (valueBox) valueBox.classList.remove('is-visible');
     }
   },
 

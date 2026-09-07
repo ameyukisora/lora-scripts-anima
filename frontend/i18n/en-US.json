@@ -952,6 +952,8 @@
 		"refresh": "Refresh from current settings"
 	},
 	"lrPreview": {
+		"position": "Step / progress",
+		"multiplier": "Multiplier",
 		"internalNote": "This optimizer adjusts its learning rate during training; an external scheduler cannot predict its curve.",
 		"unsupportedNote": "Curve preview is unavailable for this scheduler.",
 		"invalidNote": "Check learning rate, warmup and scheduler parameters. constant requires zero warmup; polynomial requires a base learning rate above 1e-7.",

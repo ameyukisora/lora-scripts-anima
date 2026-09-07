@@ -44,7 +44,7 @@ test('restart boundaries reset immediately and are sampled on both sides', () =>
 });
 test('hover uses the selected step instead of a 160-point lookup', () => {
   const { ui, data } = preview();
-  const elements = Object.fromEntries(['.lr-hover-x', '.lr-hover-value', '.lr-inspect-value', '.lr-hover-indicator']
+  const elements = Object.fromEntries(['.lr-hover-x', '.lr-hover-value', '.lr-hover-multiplier', '.lr-inspect-value', '.lr-hover-indicator']
     .map(key => [key, { style: {}, classList: { add() {} } }]));
   const chart = { getBoundingClientRect: () => ({ left: 0, right: 10000, top: 0, bottom: 100, width: 10000 }),
     querySelector: key => elements[key] };
@@ -52,4 +52,9 @@ test('hover uses the selected step instead of a 160-point lookup', () => {
     currentTarget: { querySelector: key => key === '.lr-preview-chart' ? chart : elements[key] } }, data);
   assert.equal(elements['.lr-hover-x'].textContent, '1,234 / 10,000');
   assert.equal(elements['.lr-hover-indicator'].style.left, '12.34%');
+  assert.equal(elements['.lr-hover-value'].textContent, '8.766e-5');
+  assert.equal(elements['.lr-hover-multiplier'].textContent, '0.88×');
+  ui.onLrChartLeave({ currentTarget: { querySelector: key => elements[key] } });
+  assert.equal(elements['.lr-hover-indicator'].style.display, 'none');
+  assert.equal(elements['.lr-hover-value'].textContent, '8.766e-5');
 });

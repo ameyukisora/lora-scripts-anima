@@ -952,6 +952,8 @@
 		"refresh": "按当前参数刷新"
 	},
 	"lrPreview": {
+		"position": "步数 / 进度",
+		"multiplier": "倍率",
 		"internalNote": "该优化器在训练过程中自行调整学习率，无法根据外部调度器预先绘制曲线。",
 		"unsupportedNote": "当前调度器不支持曲线预览。",
 		"invalidNote": "当前参数无法生成有效曲线：请检查学习率、预热和调度参数。constant 不允许非零预热，polynomial 的基础学习率必须大于 1e-7。",
