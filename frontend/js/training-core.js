@@ -63,6 +63,10 @@ window.trainingCoreMixin = {
   timestepPreviewOpen: false,
   timestepPreviewData: null,
   timestepPreviewScope: 'base',
+  timestepPreviewPreviousFocus: null,
+  lrPreviewOpen: false,
+  lrPreviewData: null,
+  lrPreviewPreviousFocus: null,
   lycorisModalOpen: false,
   lycorisModalPreviousFocus: null,
   subsetTimestepOffsetDrafts: {},
@@ -817,6 +821,7 @@ window.trainingCoreMixin = {
         'stepEstimate.selectDataset',
         'Select a dataset directory to calculate steps'
       );
+      if (this.lrPreviewOpen) this.refreshLrPreview();
       return;
     }
 
@@ -842,6 +847,7 @@ window.trainingCoreMixin = {
         'stepEstimate.selectDataset',
         'Select a dataset directory to calculate steps'
       );
+      if (this.lrPreviewOpen) this.refreshLrPreview();
       return null;
     }
 
@@ -879,7 +885,10 @@ window.trainingCoreMixin = {
       );
       return null;
     } finally {
-      if (requestSeq === this._stepEstimateRequestSeq) this.stepEstimateLoading = false;
+      if (requestSeq === this._stepEstimateRequestSeq) {
+        this.stepEstimateLoading = false;
+        if (this.lrPreviewOpen) this.refreshLrPreview();
+      }
     }
   },
 
@@ -1356,17 +1365,13 @@ window.trainingCoreMixin = {
 
   openLycorisConfig() {
     if (this.form.network_module !== 'lycoris.kohya') return;
-    this.lycorisModalPreviousFocus = document.activeElement;
-    this.lycorisModalOpen = true;
-    this.$nextTick(() => {
+    this._openManagedModal('lycorisModalOpen', 'lycorisModalPreviousFocus', '.lycoris-modal-close', () => {
       this.renderLycorisPanel();
-      document.querySelector('.lycoris-modal-close')?.focus();
     });
   },
 
   closeLycorisConfig() {
-    this.lycorisModalOpen = false;
-    this.$nextTick(() => this.lycorisModalPreviousFocus?.focus?.());
+    this._closeManagedModal('lycorisModalOpen', 'lycorisModalPreviousFocus');
   },
 
   lycorisSummary() {
@@ -1390,6 +1395,39 @@ window.trainingCoreMixin = {
     const field = defs.find(item => item.key === 'lycoris_algo');
     const option = (field?.options || []).find(item => item.v === value);
     return option ? this.t(option.dk, option.l || value) : (value || '');
+  },
+
+  _fieldOptionLabel(fieldKey, value, fallback = '') {
+    const field = this._fieldDefinition(fieldKey, this.form.model_train_type || 'anima-lora');
+    if (!field) return String(value ?? fallback ?? '');
+    const options = [];
+    if (Array.isArray(field.options)) options.push(...field.options);
+    if (Array.isArray(field.groups)) {
+      field.groups.forEach(group => {
+        if (Array.isArray(group.options)) options.push(...group.options);
+      });
+    }
+    const option = options.find(item => String(item.v) === String(value));
+    if (!option) return String(value ?? fallback ?? '');
+    return this.t(option.dk, option.l || String(value ?? fallback ?? ''));
+  },
+
+  _openManagedModal(stateKey, focusKey, focusSelector, afterOpen) {
+    const activeElement = typeof document !== 'undefined' ? document.activeElement : null;
+    this[focusKey] = activeElement && activeElement !== document.body ? activeElement : null;
+    this[stateKey] = true;
+    this.$nextTick(() => {
+      if (typeof afterOpen === 'function') afterOpen();
+      const target = typeof focusSelector === 'function'
+        ? focusSelector()
+        : (typeof document !== 'undefined' ? document.querySelector(focusSelector) : null);
+      target?.focus?.();
+    });
+  },
+
+  _closeManagedModal(stateKey, focusKey) {
+    this[stateKey] = false;
+    this.$nextTick(() => this[focusKey]?.focus?.());
   },
 
   // LyCORIS 面板字段在主表单渲染时追加"非 lycoris.kohya"条件：原生
@@ -2184,6 +2222,15 @@ window.trainingCoreMixin = {
           </button>
           <span class="field-hint" x-text="t('timestepPreview.entryHint')"></span>
         </div>`;
+      case 'lr_scheduler':
+        return `<div class="lr-preview-entry" x-show="form && form.model_train_type !== 'krea2-lora'">
+          <button type="button" class="btn btn-ghost btn-sm" @click="openLrPreview()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19V9"/><path d="M10 19V5"/><path d="M16 19v-7"/><path d="M22 19V3"/></svg>
+            <span x-text="t('lrPreview.open')">View learning-rate curve</span>
+          </button>
+        </div>`;
+      case 'network_module':
+        return this._shapePreviewEntry();
       case 'attn_mode':
         return `<div x-show="faStatus && !faStatus.installed && form.attn_mode==='flash'" class="field-hint field-hint-warn">${this.t('environment.envHintFlashNotInstalled')}</div>`
              + `<div x-show="xfStatus && !xfStatus.installed && form.attn_mode==='xformers'" class="field-hint field-hint-warn">${this.t('environment.envHintXformersNotInstalled')}</div>`;
@@ -2840,7 +2887,11 @@ window.trainingCoreMixin = {
     const available = new Set(this.timestepPreviewOptions().map(option => option.value));
     this.timestepPreviewScope = available.has(scope) ? scope : (available.has(this.timestepPreviewScope) ? this.timestepPreviewScope : 'base');
     this.timestepPreviewData = this._buildTimestepPreview(null, this.timestepPreviewScope);
-    this.timestepPreviewOpen = true;
+    this._openManagedModal('timestepPreviewOpen', 'timestepPreviewPreviousFocus', '.timestep-preview-close');
+  },
+
+  closeTimestepPreview() {
+    this._closeManagedModal('timestepPreviewOpen', 'timestepPreviewPreviousFocus');
   },
 
   refreshTimestepPreview() {
@@ -3819,6 +3870,18 @@ window.trainingCoreMixin = {
     if (key === 'caption_dropout_rate' && this.form.model_train_type === 'sdxl-lora' && Number(value) > 0 && this.form['cache_text_encoder_outputs']) {
       this.form['cache_text_encoder_outputs'] = false;
       this.form['cache_text_encoder_outputs_to_disk'] = false;
+    }
+
+    if (this.lrPreviewOpen && [
+      'model_train_type', 'optimizer_type', 'learning_rate', 'unet_lr', 'text_encoder_lr',
+      'lr_scheduler', 'lr_warmup_steps', 'lr_scheduler_num_cycles', 'lr_scheduler_power',
+      'network_train_unet_only', 'network_train_text_encoder_only', 'adafactor_relative_step'
+    ].includes(key)) {
+      if (key === 'model_train_type' && value === 'krea2-lora') {
+        this.closeLrPreview();
+      } else {
+        this.refreshLrPreview();
+      }
     }
 
     // Clear error for this field on change and re-render to update UI

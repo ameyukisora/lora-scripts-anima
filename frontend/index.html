@@ -22,7 +22,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="/anima-ui/css/app.css?v=20260903-wdsub1">
+  <link rel="stylesheet" href="/anima-ui/css/app.css?v=20260908-previewfit5">
   <link rel="stylesheet" href="/anima-ui/css/themes/light.css?v=20260831-motion1">
   <link rel="stylesheet" href="/anima-ui/css/themes/dark.css?v=20260831-selectfix1">
   <link rel="stylesheet" href="/anima-ui/css/themes/comfy.css?v=20260831-selectfix1">
@@ -39,12 +39,14 @@
   <script src="/anima-ui/js/environment-core.js" defer></script>
   <script src="/anima-ui/js/environment-render.js" defer></script>
   <script src="/anima-ui/js/docs.js" defer></script>
-  <script src="/anima-ui/js/training-core.js?v=20260903-lokrnote1" defer></script>
+  <script src="/anima-ui/js/training-core.js?v=20260908-shapepreview7" defer></script>
+  <script src="/anima-ui/js/training-lr-preview.js?v=20260907-lrpreview8" defer></script>
+  <script src="/anima-ui/js/training-shape-preview.js?v=20260908-shapepreview7" defer></script>
   <script src="/anima-ui/js/training-toml.js" defer></script>
   <script src="/anima-ui/js/training-config-io.js" defer></script>
   <script src="/anima-ui/js/tagger.js?v=20260827-aurora1" defer></script>
   <script src="/anima-ui/js/tag-editor.js?v=20260830-copy1" defer></script>
-  <script src="/anima-ui/js/app.js" defer></script>
+  <script src="/anima-ui/js/app.js?v=20260908-shapepreview7" defer></script>
   <script src="/anima-ui/js/vendor/alpine.min.js" defer></script>
 </head>
 <body x-data="animaApp()" x-init="init()" x-cloak>
@@ -1326,7 +1328,7 @@
 <!-- Near-fullscreen LyCORIS configuration panel. Fields bind directly to form. -->
 <div class="modal-overlay lycoris-modal-overlay" x-show="lycorisModalOpen" @click.self="closeLycorisConfig()"
      @keydown.escape.window="closeLycorisConfig()" x-cloak>
-  <div class="modal lycoris-modal" role="dialog" aria-modal="true"
+  <div class="modal lycoris-modal modal-workbench modal-workbench--lycoris" role="dialog" aria-modal="true"
        :aria-label="t('field.lycorisConfigTitle', 'LyCORIS configuration')">
     <div class="modal-header lycoris-modal-header">
       <div>
@@ -1346,6 +1348,9 @@
       </aside>
     </div>
     <div class="modal-footer lycoris-modal-footer">
+      <button type="button" class="btn btn-ghost btn-sm" x-show="form.model_train_type === 'anima-lora'"
+              @click="closeLycorisConfig(); $nextTick(() => openShapePreview())"
+              x-text="t('shapePreview.open')">Structure preview</button>
       <button type="button" class="btn btn-ghost btn-sm" @click="closeLycorisConfig()" x-text="t('common.close')">Close</button>
     </div>
   </div>
@@ -1431,15 +1436,15 @@
 </div>
 
 <!-- ── Flow-matching Timestep Distribution Preview ─────── -->
-<div class="modal-overlay" x-show="timestepPreviewOpen" @click.self="timestepPreviewOpen = false"
-     @keydown.escape.window="timestepPreviewOpen = false" x-cloak>
-  <div class="modal timestep-preview-modal" role="dialog" aria-modal="true" :aria-label="t('timestepPreview.title')">
+<div class="modal-overlay" x-show="timestepPreviewOpen" @click.self="closeTimestepPreview()"
+     @keydown.escape.window="closeTimestepPreview()" x-cloak>
+  <div class="modal timestep-preview-modal modal-workbench modal-workbench--timestep" role="dialog" aria-modal="true" :aria-label="t('timestepPreview.title')">
     <div class="modal-header">
       <div>
         <div x-text="t('timestepPreview.title')">Timestep distribution</div>
         <div class="timestep-preview-subtitle" x-text="t('timestepPreview.subtitle')"></div>
       </div>
-      <button class="btn-icon" @click="timestepPreviewOpen = false" :aria-label="t('common.close')">
+      <button class="btn-icon timestep-preview-close" @click="closeTimestepPreview()" :aria-label="t('common.close')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
@@ -1497,7 +1502,82 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-primary btn-sm" @click="timestepPreviewOpen = false" x-text="t('common.close')">Close</button>
+      <button class="btn btn-primary btn-sm" @click="closeTimestepPreview()" x-text="t('common.close')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── sd-scripts Learning-Rate Curve Preview ──────────── -->
+<div class="modal-overlay" x-show="lrPreviewOpen" @click.self="closeLrPreview()"
+     @keydown.escape.window="closeLrPreview()" x-cloak>
+  <div class="modal lr-preview-modal modal-workbench modal-workbench--lr" role="dialog" aria-modal="true" :aria-label="t('lrPreview.title')">
+    <div class="modal-header">
+      <div>
+        <div x-text="t('lrPreview.title')">Learning-rate curve</div>
+        <div class="lr-preview-subtitle" x-text="t('lrPreview.subtitle')"></div>
+      </div>
+      <button class="btn-icon lr-preview-close" @click="closeLrPreview()" :aria-label="t('common.close')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body lr-preview-layout" x-show="lrPreviewData">
+      <div class="lr-layout-sidebar">
+        <div class="lr-preview-meta">
+          <span><small x-text="t('lrPreview.optimizer')"></small><b x-text="lrPreviewData && lrPreviewData.optimizerLabel"></b></span>
+          <span><small x-text="t('lrPreview.scheduler')"></small><b x-text="lrPreviewData && lrPreviewData.schedulerLabel"></b></span>
+          <span><small x-text="t('lrPreview.baseRate')"></small><b x-text="lrPreviewData && lrPreviewData.baseRateText"></b></span>
+          <template x-if="lrPreviewData && lrPreviewData.totalSteps > 0">
+            <span><small x-text="t('lrPreview.totalSteps')"></small><b x-text="lrPreviewData && lrPreviewData.totalStepsText"></b></span>
+          </template>
+          <template x-if="lrPreviewData && lrPreviewData.warmupVisible">
+            <span><small x-text="t('lrPreview.warmup')"></small><b x-text="lrPreviewData && lrPreviewData.warmupLabel"></b></span>
+          </template>
+          <template x-if="lrPreviewData && lrPreviewData.cycles">
+            <span><small x-text="t('lrPreview.cycles')"></small><b x-text="lrPreviewData && lrPreviewData.cycles"></b></span>
+          </template>
+          <template x-if="lrPreviewData && lrPreviewData.power">
+            <span><small x-text="t('lrPreview.power')"></small><b x-text="lrPreviewData && lrPreviewData.power"></b></span>
+          </template>
+        </div>
+        <div class="lr-preview-notes" x-show="lrPreviewData && lrPreviewData.notes.length">
+          <template x-for="(note, index) in (lrPreviewData ? lrPreviewData.notes : [])" :key="index">
+            <div><span aria-hidden="true">•</span><span x-text="note"></span></div>
+          </template>
+        </div>
+        <p class="lr-preview-footnote" x-text="t('lrPreview.footnote')"></p>
+      </div>
+      <div class="lr-layout-chart"
+           @mousemove="onLrChartHover($event)"
+           @mouseleave="onLrChartLeave($event)">
+        <div x-html="_buildLrChartHtml(lrPreviewData)"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary btn-sm" @click="closeLrPreview()" x-text="t('common.close')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Anima weight-decomposition (matrix shape) preview ── -->
+<div class="modal-overlay" x-show="shapePreviewOpen" @click.self="closeShapePreview()"
+     @keydown.escape.window="shapePreviewOpen && closeShapePreview()" x-cloak>
+  <div class="modal shape-preview-modal modal-workbench modal-workbench--shape" role="dialog" aria-modal="true" :aria-label="t('shapePreview.title')">
+    <div class="modal-header">
+      <div>
+        <div x-text="t('shapePreview.title')">Matrix structure preview</div>
+        <div class="shape-preview-subtitle" x-text="t('shapePreview.subtitle')"></div>
+      </div>
+      <button type="button" class="btn-icon shape-preview-close" @click="closeShapePreview()" :aria-label="t('common.close')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body shape-preview-body">
+      <template x-if="shapePreviewOpen">
+        <div x-html="shapePreviewHtml()"></div>
+      </template>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary btn-sm" @click="closeShapePreview()" x-text="t('common.close')">Close</button>
     </div>
   </div>
 </div>

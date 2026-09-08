@@ -21,7 +21,7 @@ A local GUI for LoRA training. Anima / SDXL use [kohya-ss/sd-scripts](https://gi
   <a href="https://github.com/amenorira/lora-scripts-anima/blob/main/README.md">中文</a>
 </p>
 
-lora-scripts-anima is a local LoRA training GUI. A training-core registry keeps each backend isolated: **sd-scripts** handles SDXL / Anima, **LyCORIS** is an optional adapter backend mounted through `lycoris.kohya`, and **musubi-tuner** handles Krea 2 RAW DiT LoRA.
+A training-core registry keeps each backend isolated; **LyCORIS** is an optional adapter backend mounted through `lycoris.kohya`.
 
 ### Supported Model Types
 
@@ -35,18 +35,43 @@ lora-scripts-anima is a local LoRA training GUI. A training-core registry keeps 
 
 > ℹ️ The `vendor/sd-scripts/` engine supports SD3 / FLUX / HunyuanImage / Lumina and more, but the current UI does not yet provide training entry points for them.
 
-## ✨ Features
+## Feature Overview
 
 - **Training WebUI** — An all-in-one workspace with a LoRA training form, TOML configuration preview, configuration import/export, and training history
+- **Pre-training previews** — Timestep distribution, learning-rate curve, and matrix structure modals computed locally; [see the next section](#pre-training-previews)
+- **LyCORIS adapter panel** — LoCon / LoHa / LoKr with algorithm-aware parameters, a selectable kernel backend (auto / Triton / TileLang / compile / Torch), LoRA+ support, and Anima training-scope refinement
+- **Many optimizers** — AdamW, Lion, Prodigy, CAME, StableAdamW, Adafactor, ScheduleFree, Adan, AdEMAMix, Muon, plus the bundled LoRA-RITE and the experimental LoRA-Muon, each with its own defaults and constraint hints
 - **Real-time Hardware Monitor** — GPU utilization, VRAM, and temperature; CPU and RAM usage; Chart.js charts, TensorBoard integration, and live logs
 - **Native Tag Editor** — Built-in image tag editor with batch find-and-replace, deduplication, sorting, cleanup, and more
-- **Multi-model Tagger Workspace** — WD, CL Tagger, and Camie Tagger with single-image inspection, category thresholds, and batch caption output
+- **Tagger Workspace** — WD EVA02-Large, WD ViT-Large, CL Tagger, and Camie Tagger with single-image inspection, category thresholds, and batch caption output; AI tagging connects to any vision API speaking OpenAI-compatible (Chat Completions / Responses) or Anthropic Messages protocols
 - **Flash Attention Smart Install** — Provides prebuilt wheels for the fixed Python 3.12 + PyTorch 2.10+cu130 baseline; multi-mirror fallback downloads with resume and local caching; one-click installation
 - **EmoSens Adaptive Optimizer** — Built-in EmoSens v3.9 with better convergence for Anima DiT training
 - **Internationalization (i18n)** — Chinese and English UI with browser-language detection and a persistent language preference
-- **Dark / Light Theme** — Auto-follow system preference or manual toggle
+- **Three themes** — Light, dark, and ComfyUI themes, with auto-follow system preference or manual toggle
 - **Backend Connectivity Indicator** — Real-time frontend-backend connection status with disconnect duration
 - **Slow Remote Connection Compatibility** — Same-origin realtime transport, a weak-network thumbnail queue, and versioned browser caching reduce the effect of preview requests on live status delivery
+
+<a name="pre-training-previews"></a>
+
+## Pre-training Previews
+
+### Timestep distribution
+
+Open **View timestep distribution** under the **Training timestep sampling method** field. The modal plots the analytical probability density of the active sampling method and shift formula, overlays the loss weighting the trainer actually applies, and marks the median timestep plus the high / mid / low noise shares. Change any parameter and hit **Refresh from current settings** to recompute.
+
+![Timestep distribution preview: probability density, loss weighting, and noise-zone shares](docs/images/timestep-preview.en-US.png)
+
+### Learning-rate curve
+
+Open **View learning-rate curve** under the **Learning-rate schedule** field. The modal draws warmup, decay, and restart curves from the sd-scripts scheduler formulas; hover the chart to read the learning rate at any step. Optimizers that adjust their own learning rate (ScheduleFree, EmoSens) show an explanatory note instead of a misleading curve.
+
+![Learning-rate curve preview: warmup and cosine decay](docs/images/lr-preview.en-US.png)
+
+### Matrix structure
+
+For Anima training, open **Structure preview** under the **Training network module** field. The modal shows how the current module and algorithm split weights into trainable matrices — low-rank factorization (LoRA / LoCon), the LoHa Hadamard product, and the LoKr Kronecker decomposition — including how DoRA, rs_lora, and Full Matrix change shapes and scaling, along with the trainable parameter count and share for one example layer.
+
+![Matrix structure preview: LoKr Kronecker decomposition and parameter count](docs/images/shape-preview.en-US.png)
 
 ## Project Structure
 
@@ -54,17 +79,21 @@ lora-scripts-anima is a local LoRA training GUI. A training-core registry keeps 
 lora-scripts-anima/
 ├── vendor/sd-scripts/          ← Anima / SDXL training engine (pinned upstream snapshot)
 ├── vendor/musubi-tuner/        ← Krea 2 core (pinned upstream snapshot)
+├── vendor/lycoris/             ← LyCORIS adapter backend (pinned upstream snapshot)
+├── vendor/emo_optimizer/       ← EmoSens adaptive optimizer
+├── vendor/lora_rite/           ← LoRA-RITE optimizer
+├── vendor/lora_muon/           ← LoRA-Muon experimental optimizer
 ├── backend/                    ← FastAPI backend
 │   ├── server/                 ← API core (routes, state, proxy)
 │   ├── training/               ← Training engine wrapper (adapter, field registry, supervisor)
 │   ├── monitor/                ← Training monitor (GPU/system/logs/preview/history)
 │   ├── tageditor/              ← Native tag editor
-│   ├── tagger/                 ← WD14 tagging module
+│   ├── tagger/                 ← Tagging module (WD / CL / Camie / AI endpoints)
 │   └── gui.py                  ← Internal GUI entry (called by launch scripts)
 ├── frontend/                   ← Alpine.js SPA frontend
 ├── config/                     ← Local configuration and autosaves
+├── docs/                       ← Parameter guides and preview screenshots
 ├── tools/                      ← Standalone tools (Flash Attn installer, etc.)
-├── vendor/emo_optimizer/       ← EmoSens adaptive optimizer
 ├── start.bat / start.sh        ← Launch scripts
 ├── requirements.txt            ← Additional project dependencies (sd-scripts core deps installed via vendor)
 └── requirements-musubi-krea2.txt ← Shared Krea 2 version-convergence dependencies
@@ -79,7 +108,7 @@ lora-scripts-anima/
 - **PyTorch 2.10.0 + CUDA 13.0**: installed automatically by the startup scripts for RTX 30/40/50 series
 - **NVIDIA driver R580 or newer**: the minimum driver version for CUDA 13.0
 
-> **Windows users do not need to preinstall Python/Git.** On the first run, `start.bat` searches for 64-bit Python 3.12 and skips Microsoft Store placeholders.
+> **Windows users do not need to preinstall Python.** On the first run, `start.bat` searches for 64-bit Python 3.12 and skips Microsoft Store placeholders.
 >
 > If only Python 3.13/3.14 is installed, the launcher can install the official Python 3.12 side by side for the current user. It does not remove newer versions or change the default Python. Downloads show progress, size, speed, and ETA; silent installer stages show an activity spinner.
 >
@@ -128,11 +157,9 @@ cd lora-scripts-anima
 
 First launch automatically creates a virtual environment and installs all dependencies. The GUI opens at [http://127.0.0.1:12333](http://127.0.0.1:12333).
 
-> **RTX 40/50 users**: the startup script detects flash_attn status. If not installed, use the GUI **Environment** tab for one-click install.
-
 ### Realtime and Slow Remote Connections
 
-All HTTP requests and realtime connections are same-origin with the current page. The trainer does not configure SSH, port forwarding, proxies, cloud-specific logic, or an extra realtime port. If you already reach the remote page through your own setup, the browser continues to use that entry point.
+All HTTP requests and realtime connections are same-origin with the current page. The trainer does not configure SSH, port forwarding, proxies, cloud-specific logic, or an extra realtime port.
 
 - `/ws/realtime` carries only compact JSON state, progress, log increments, and hardware data. Commands, images, files, and metadata remain HTTP requests.
 - The sidebar shows “Backend connected” only after it receives both the WebSocket `ready` message and a realtime snapshot. Two seconds without valid realtime data produces “Realtime data delayed”; the status changes to “Backend disconnected” only after the socket closes and the health probe also fails.
@@ -155,6 +182,7 @@ Detailed training parameter documentation lives in `docs/parameters/`:
 - [LoRA+ Guide](docs/parameters/lora-plus.en-US.md): how LoRA+ works, ratio selection, optimizer compatibility, and evaluation
 - [Optimizer Selection and Parameter Guide](docs/parameters/optimizers.en-US.md): optimizer comparison, learning rate and weight decay starting points, dataset-based selection
 - [Timestep Guide](docs/parameters/timesteps.en-US.md): flow-matching timestep sampling, loss weighting, and the distribution preview
+- [AdaLN Modulation Guide](docs/parameters/adaln.en-US.md): what the modulation layers do, upstream defaults, and when enabling them helps
 
 ## Program Arguments
 
@@ -164,6 +192,7 @@ Detailed training parameter documentation lives in `docs/parameters/`:
 | `--port` | int | 12333 | Server port |
 | `--listen` | bool | false | Enable listening mode (allow external access) |
 | `--skip-prepare-environment` | bool | false | Do not check or repair dependencies at startup |
+| `--skip-prepare-onnxruntime` | bool | false | Skip the onnxruntime-gpu install check only |
 | `--disable-tensorboard` | bool | false | Do not launch the bundled TensorBoard with the GUI |
 | `--tensorboard-host` | str | "127.0.0.1" | TensorBoard host |
 | `--tensorboard-port` | int | 6006 | TensorBoard port |
@@ -175,11 +204,11 @@ Detailed training parameter documentation lives in `docs/parameters/`:
 
 ## Flash Attention Acceleration
 
-Recommended for RTX 40/50 series GPUs for optimal training performance.
+Recommended for RTX 40/50 series GPUs for optimal training performance. The startup script checks the installation status automatically.
 
 ### GUI Install
 
-Launch the GUI and install from the **Environment** tab. The script targets the fixed Python 3.12 + PyTorch 2.10+cu130 baseline, downloads prebuilt wheels with multi-mirror fallback (resume + local cache), and supports offline install from a local .whl.
+Launch the GUI and install from the **Environment** tab; installing from a local `.whl` offline is also supported.
 
 ### Manual Install
 
@@ -203,7 +232,7 @@ Linux:
 
 ## EmoSens Adaptive Optimizer
 
-The project includes the EmoSens v3.9 adaptive optimizer (`vendor/emo_optimizer/`), which improves convergence when training Anima DiT models.
+The bundled EmoSens v3.9 lives in `vendor/emo_optimizer/`.
 
 ### Recommended Settings
 
@@ -215,8 +244,6 @@ The project includes the EmoSens v3.9 adaptive optimizer (`vendor/emo_optimizer/
 Select `EmoSens` from the optimizer dropdown in the training form.
 
 ## TOML Configuration Import and Export
-
-Export the current training parameters to TOML and import TOML files into the training form.
 
 - **Export**: Download the current TOML configuration from the training preview panel
 - **Import**: Load a TOML file and apply supported fields to the matching training form
