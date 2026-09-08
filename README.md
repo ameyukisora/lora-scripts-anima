@@ -35,18 +35,45 @@ lora-scripts-anima 是一款本地 LoRA 训练图形界面。项目通过训练�
 
 > ℹ️ `vendor/sd-scripts/` 训练引擎本身支持 SD3 / FLUX / HunyuanImage / Lumina 等更多模型，但当前 UI 尚未提供这些模型的训练入口。
 
-## ✨ 功能特性
+## 功能简介
 
 - **训练 WebUI** — 一站式工作台，包含 LoRA 训练表单、TOML 配置预览、配置导入导出和训练历史记录
+- **训练前预览** — 时间步分布、学习率曲线与矩阵结构三个本地预览弹窗，[见下一节](#pre-training-previews)
+- **LyCORIS 适配器面板** — 支持 LoCon / LoHa / LoKr，按算法动态显示参数，可选内核后端（auto / Triton / TileLang / compile / Torch），并支持 LoRA+ 与 Anima 训练范围细化
+- **多种优化器** — AdamW、Lion、Prodigy、CAME、StableAdamW、Adafactor、ScheduleFree、Adan、AdEMAMix、Muon 等常用优化器，外加内置的 LoRA-RITE 与测试中的 LoRA-Muon，各自带默认值与约束提示
 - **实时硬件监控** — 显示 GPU 利用率、显存与温度，以及 CPU/RAM 使用率；集成 Chart.js 动态图表、TensorBoard 和实时日志
 - **原生标签编辑器** — 内置图片标签编辑器，支持批量查找替换、去重、排序、清理等操作
-- **多模型 Tagger 工作台** — 集成 WD、CL Tagger 与 Camie Tagger，支持单图检查、分类阈值控制和批量标签写入
+- **Tagger 工作台** — 集成 WD EVA02-Large、WD ViT-Large、CL Tagger 与 Camie Tagger，支持单图检查、分类阈值控制和批量标签写入；另可对接 OpenAI 兼容（Chat Completions / Responses）或 Anthropic Messages 协议的 AI 打标
 - **Flash Attention 智能安装** — 面向 Python 3.12 + PyTorch 2.10+cu130 固定基线提供预编译 wheel，多镜像回退下载（断点续传 + 本地缓存），支持一键安装
 - **EmoSens 自适应优化器** — 内置 EmoSens v3.9，对 Anima DiT 训练有更好的收敛效果
 - **国际化（i18n）** — 中英双语界面，支持浏览器语言自动检测并保存语言偏好
-- **暗色/亮色主题** — 支持自动跟随系统、手动切换
+- **三种主题** — 浅色、深色与 ComfyUI 主题，支持跟随系统、手动切换
 - **后端连接状态指示器** — 实时显示前后端连接状态及断连时长
 - **慢速远程连接兼容** — 使用同源实时传输、弱网缩略图队列和版本化浏览器缓存，降低预览请求对实时状态传输的影响
+
+<a name="pre-training-previews"></a>
+
+## 训练前预览
+
+训练表单里的三个预览弹窗都用当前参数在本地计算，不会启动训练，也不会修改 TOML。
+
+### 时间步分布预览
+
+在 **训练时间步采样方式** 字段下方点「查看时间步分布」。弹窗绘制当前采样方式与位移公式的解析概率密度曲线，叠加训练器实际使用的 Loss 权重折线，并标出中位时间步与高 / 中 / 低噪声区间的占比。改完参数后点「按当前参数刷新」即可重新计算。
+
+![时间步分布预览：概率密度曲线、Loss 权重与噪声区间占比](docs/images/timestep-preview.zh-CN.png)
+
+### 学习率曲线预览
+
+在 **学习率变化方式** 字段下方点「查看学习率曲线」。弹窗按 sd-scripts 的调度公式绘制预热、衰减与重启曲线，鼠标悬浮可读取任意步数的学习率。ScheduleFree、EmoSens 这类在训练中自行调整学习率的优化器会显示说明，不再绘制可能误导的曲线。
+
+![学习率曲线预览：预热与余弦衰减曲线](docs/images/lr-preview.zh-CN.png)
+
+### 矩阵结构预览
+
+Anima 训练下，**训练网络模块** 字段下方点「结构预览」。弹窗按当前网络模块和算法画出权重如何拆成可训练矩阵——低秩分解（LoRA / LoCon）、LoHa 的 Hadamard 积、LoKr 的 Kronecker 分解，以及 DoRA、rs_lora、Full Matrix 等参数对形状与缩放的影响，同时给出示例层的可训练参数量与占比。
+
+![矩阵结构预览：LoKr 的 Kronecker 分解与参数量](docs/images/shape-preview.zh-CN.png)
 
 ## 项目结构
 
@@ -54,17 +81,21 @@ lora-scripts-anima 是一款本地 LoRA 训练图形界面。项目通过训练�
 lora-scripts-anima/
 ├── vendor/sd-scripts/          ← Anima / SDXL 训练引擎（固定上游快照）
 ├── vendor/musubi-tuner/        ← Krea 2 训练核心（固定上游快照）
+├── vendor/lycoris/             ← LyCORIS 适配器后端（固定上游快照）
+├── vendor/emo_optimizer/       ← EmoSens 自适应优化器
+├── vendor/lora_rite/           ← LoRA-RITE 优化器
+├── vendor/lora_muon/           ← LoRA-Muon 测试优化器
 ├── backend/                    ← FastAPI 后端
 │   ├── server/                 ← API 核心（路由、状态、代理）
 │   ├── training/               ← 训练引擎封装（参数适配、字段注册表、进程管理）
 │   ├── monitor/                ← 训练监控（GPU/系统/日志/预览/历史）
 │   ├── tageditor/              ← 原生标签编辑器
-│   ├── tagger/                 ← WD14 标注模块
+│   ├── tagger/                 ← 打标模块（WD / CL / Camie / AI 接口）
 │   └── gui.py                  ← GUI 内部入口（由启动脚本调用）
 ├── frontend/                   ← Alpine.js SPA 前端
 ├── config/                     ← 本地配置与自动保存
+├── docs/                       ← 参数指南与预览截图
 ├── tools/                      ← 独立工具（Flash Attn 安装等）
-├── vendor/emo_optimizer/       ← EmoSens 自适应优化器
 ├── start.bat / start.sh        ← 启动脚本
 ├── requirements.txt            ← 项目额外依赖（sd-scripts 核心依赖由 vendor 单独安装）
 └── requirements-musubi-krea2.txt ← 主环境的 Krea 2 版本收敛依赖
@@ -157,6 +188,7 @@ cd lora-scripts-anima
 - [LoRA+ 指南](docs/parameters/lora-plus.zh-CN.md)：LoRA+ 的原理、倍率选择、优化器兼容性与判断方法
 - [优化器选择与参数指南](docs/parameters/optimizers.zh-CN.md)：优化器对比、学习率/weight decay 等参数起点、按数据集选择
 - [时间步指南](docs/parameters/timesteps.zh-CN.md)：flow matching 时间步采样、Loss 权重与分布预览说明
+- [AdaLN 调制层指南](docs/parameters/adaln.zh-CN.md)：调制层的作用、上游默认行为，以及哪些训练适合开启
 
 ## 程序参数
 
@@ -166,6 +198,7 @@ cd lora-scripts-anima
 | `--port` | int | 12333 | 服务器端口 |
 | `--listen` | bool | false | 启用监听模式（允许外部访问） |
 | `--skip-prepare-environment` | bool | false | 启动时不再自动检查和修复依赖环境 |
+| `--skip-prepare-onnxruntime` | bool | false | 只跳过 onnxruntime-gpu 的安装检查 |
 | `--disable-tensorboard` | bool | false | 不随 GUI 启动内置的 TensorBoard |
 | `--tensorboard-host` | str | "127.0.0.1" | TensorBoard 主机 |
 | `--tensorboard-port` | int | 6006 | TensorBoard 端口 |
