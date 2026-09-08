@@ -6,6 +6,32 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## v2.15.0 - 2026-09-08
+
+This release adds learning-rate curve and matrix structure preview modals and unifies the shared modal shell, sizing, and typography of all three previews.
+
+### Added
+
+- Learning-rate curve preview: opens under the `lr_scheduler` field and draws warmup, decay, and restart curves from the sd-scripts scheduler formulas, with a hover readout for any step. It explains the case where the total step count is unknown and does not draw a misleading curve for optimizers that adjust their own learning rate.
+- Matrix structure preview (Anima only): opens under the `network_module` field and at the bottom of the LyCORIS modal. It draws the LoRA / LoHa / LoKr weight decomposition for the current module and algorithm with parameter counts and scaling factors. Shapes and counts are transcribed from the vendor implementation; the factor decomposition was cross-checked against LyCORIS case by case, and the parameter counts match measured module instances.
+
+### Improved
+
+- Unified the modal shell for the LyCORIS, timestep, and learning-rate modals: open, close, and focus restore now share one implementation, sizing rules moved to viewport variables, and narrow-window fallbacks were added.
+- All three preview modals are larger with bigger type (11px labels, 12–13px body) and no low-contrast opacity on parameter labels. Charts keep their design aspect ratio, and modal width is derived from viewport height so tall windows do not stretch charts and short windows do not scroll.
+- The learning-rate hover readout is now a fixed-width single-line display that keeps the last value after the pointer leaves the chart.
+- Fixed the timestep preview y-axis title overlapping the top tick and corrected polynomial decay, warmup, and restart boundary calculations.
+
+### Documentation
+
+- Added a “Pre-training Previews” section to the README covering the three modals with Chinese and English screenshots. The feature list, project structure, parameter guides, and program arguments table were refreshed, and redundant wording was trimmed.
+
+### Tests
+
+- The backend test suite passes (448 passed, 1,764 subtests passed).
+
+[Full changes](https://github.com/amenorira/lora-scripts-anima/compare/v2.14.0...v2.15.0)
+
 ## v2.14.0 - 2026-09-05
 
 This release streamlines the LyCORIS algorithm selector and corrects normalization-layer copy and Anima modulation exclusions.
