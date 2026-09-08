@@ -22,7 +22,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="/anima-ui/css/app.css?v=20260907-lrpreview8">
+  <link rel="stylesheet" href="/anima-ui/css/app.css?v=20260908-previewfit5">
   <link rel="stylesheet" href="/anima-ui/css/themes/light.css?v=20260831-motion1">
   <link rel="stylesheet" href="/anima-ui/css/themes/dark.css?v=20260831-selectfix1">
   <link rel="stylesheet" href="/anima-ui/css/themes/comfy.css?v=20260831-selectfix1">
@@ -39,13 +39,14 @@
   <script src="/anima-ui/js/environment-core.js" defer></script>
   <script src="/anima-ui/js/environment-render.js" defer></script>
   <script src="/anima-ui/js/docs.js" defer></script>
-  <script src="/anima-ui/js/training-core.js?v=20260907-lrpreview8" defer></script>
+  <script src="/anima-ui/js/training-core.js?v=20260908-shapepreview7" defer></script>
   <script src="/anima-ui/js/training-lr-preview.js?v=20260907-lrpreview8" defer></script>
+  <script src="/anima-ui/js/training-shape-preview.js?v=20260908-shapepreview7" defer></script>
   <script src="/anima-ui/js/training-toml.js" defer></script>
   <script src="/anima-ui/js/training-config-io.js" defer></script>
   <script src="/anima-ui/js/tagger.js?v=20260827-aurora1" defer></script>
   <script src="/anima-ui/js/tag-editor.js?v=20260830-copy1" defer></script>
-  <script src="/anima-ui/js/app.js" defer></script>
+  <script src="/anima-ui/js/app.js?v=20260908-shapepreview7" defer></script>
   <script src="/anima-ui/js/vendor/alpine.min.js" defer></script>
 </head>
 <body x-data="animaApp()" x-init="init()" x-cloak>
@@ -1347,6 +1348,9 @@
       </aside>
     </div>
     <div class="modal-footer lycoris-modal-footer">
+      <button type="button" class="btn btn-ghost btn-sm" x-show="form.model_train_type === 'anima-lora'"
+              @click="closeLycorisConfig(); $nextTick(() => openShapePreview())"
+              x-text="t('shapePreview.open')">Structure preview</button>
       <button type="button" class="btn btn-ghost btn-sm" @click="closeLycorisConfig()" x-text="t('common.close')">Close</button>
     </div>
   </div>
@@ -1550,6 +1554,30 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-primary btn-sm" @click="closeLrPreview()" x-text="t('common.close')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Anima weight-decomposition (matrix shape) preview ── -->
+<div class="modal-overlay" x-show="shapePreviewOpen" @click.self="closeShapePreview()"
+     @keydown.escape.window="shapePreviewOpen && closeShapePreview()" x-cloak>
+  <div class="modal shape-preview-modal modal-workbench modal-workbench--shape" role="dialog" aria-modal="true" :aria-label="t('shapePreview.title')">
+    <div class="modal-header">
+      <div>
+        <div x-text="t('shapePreview.title')">Matrix structure preview</div>
+        <div class="shape-preview-subtitle" x-text="t('shapePreview.subtitle')"></div>
+      </div>
+      <button type="button" class="btn-icon shape-preview-close" @click="closeShapePreview()" :aria-label="t('common.close')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body shape-preview-body">
+      <template x-if="shapePreviewOpen">
+        <div x-html="shapePreviewHtml()"></div>
+      </template>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary btn-sm" @click="closeShapePreview()" x-text="t('common.close')">Close</button>
     </div>
   </div>
 </div>

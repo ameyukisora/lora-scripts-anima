@@ -2229,6 +2229,8 @@ window.trainingCoreMixin = {
             <span x-text="t('lrPreview.open')">View learning-rate curve</span>
           </button>
         </div>`;
+      case 'network_module':
+        return this._shapePreviewEntry();
       case 'attn_mode':
         return `<div x-show="faStatus && !faStatus.installed && form.attn_mode==='flash'" class="field-hint field-hint-warn">${this.t('environment.envHintFlashNotInstalled')}</div>`
              + `<div x-show="xfStatus && !xfStatus.installed && form.attn_mode==='xformers'" class="field-hint field-hint-warn">${this.t('environment.envHintXformersNotInstalled')}</div>`;
