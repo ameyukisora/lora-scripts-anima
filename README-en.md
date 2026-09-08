@@ -21,7 +21,7 @@ A local GUI for LoRA training. Anima / SDXL use [kohya-ss/sd-scripts](https://gi
   <a href="https://github.com/amenorira/lora-scripts-anima/blob/main/README.md">中文</a>
 </p>
 
-lora-scripts-anima is a local LoRA training GUI. A training-core registry keeps each backend isolated: **sd-scripts** handles SDXL / Anima, **LyCORIS** is an optional adapter backend mounted through `lycoris.kohya`, and **musubi-tuner** handles Krea 2 RAW DiT LoRA.
+A training-core registry keeps each backend isolated; **LyCORIS** is an optional adapter backend mounted through `lycoris.kohya`.
 
 ### Supported Model Types
 
@@ -54,8 +54,6 @@ lora-scripts-anima is a local LoRA training GUI. A training-core registry keeps 
 <a name="pre-training-previews"></a>
 
 ## Pre-training Previews
-
-The three preview modals compute everything locally from the current form values. They never start training or modify the TOML.
 
 ### Timestep distribution
 
@@ -110,7 +108,7 @@ lora-scripts-anima/
 - **PyTorch 2.10.0 + CUDA 13.0**: installed automatically by the startup scripts for RTX 30/40/50 series
 - **NVIDIA driver R580 or newer**: the minimum driver version for CUDA 13.0
 
-> **Windows users do not need to preinstall Python/Git.** On the first run, `start.bat` searches for 64-bit Python 3.12 and skips Microsoft Store placeholders.
+> **Windows users do not need to preinstall Python.** On the first run, `start.bat` searches for 64-bit Python 3.12 and skips Microsoft Store placeholders.
 >
 > If only Python 3.13/3.14 is installed, the launcher can install the official Python 3.12 side by side for the current user. It does not remove newer versions or change the default Python. Downloads show progress, size, speed, and ETA; silent installer stages show an activity spinner.
 >
@@ -159,11 +157,9 @@ cd lora-scripts-anima
 
 First launch automatically creates a virtual environment and installs all dependencies. The GUI opens at [http://127.0.0.1:12333](http://127.0.0.1:12333).
 
-> **RTX 40/50 users**: the startup script detects flash_attn status. If not installed, use the GUI **Environment** tab for one-click install.
-
 ### Realtime and Slow Remote Connections
 
-All HTTP requests and realtime connections are same-origin with the current page. The trainer does not configure SSH, port forwarding, proxies, cloud-specific logic, or an extra realtime port. If you already reach the remote page through your own setup, the browser continues to use that entry point.
+All HTTP requests and realtime connections are same-origin with the current page. The trainer does not configure SSH, port forwarding, proxies, cloud-specific logic, or an extra realtime port.
 
 - `/ws/realtime` carries only compact JSON state, progress, log increments, and hardware data. Commands, images, files, and metadata remain HTTP requests.
 - The sidebar shows “Backend connected” only after it receives both the WebSocket `ready` message and a realtime snapshot. Two seconds without valid realtime data produces “Realtime data delayed”; the status changes to “Backend disconnected” only after the socket closes and the health probe also fails.
@@ -208,11 +204,11 @@ Detailed training parameter documentation lives in `docs/parameters/`:
 
 ## Flash Attention Acceleration
 
-Recommended for RTX 40/50 series GPUs for optimal training performance.
+Recommended for RTX 40/50 series GPUs for optimal training performance. The startup script checks the installation status automatically.
 
 ### GUI Install
 
-Launch the GUI and install from the **Environment** tab. The script targets the fixed Python 3.12 + PyTorch 2.10+cu130 baseline, downloads prebuilt wheels with multi-mirror fallback (resume + local cache), and supports offline install from a local .whl.
+Launch the GUI and install from the **Environment** tab; installing from a local `.whl` offline is also supported.
 
 ### Manual Install
 
@@ -236,7 +232,7 @@ Linux:
 
 ## EmoSens Adaptive Optimizer
 
-The project includes the EmoSens v3.9 adaptive optimizer (`vendor/emo_optimizer/`), which improves convergence when training Anima DiT models.
+The bundled EmoSens v3.9 lives in `vendor/emo_optimizer/`.
 
 ### Recommended Settings
 
@@ -248,8 +244,6 @@ The project includes the EmoSens v3.9 adaptive optimizer (`vendor/emo_optimizer/
 Select `EmoSens` from the optimizer dropdown in the training form.
 
 ## TOML Configuration Import and Export
-
-Export the current training parameters to TOML and import TOML files into the training form.
 
 - **Export**: Download the current TOML configuration from the training preview panel
 - **Import**: Load a TOML file and apply supported fields to the matching training form

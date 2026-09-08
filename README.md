@@ -21,7 +21,7 @@ _✨ 多训练核心 LoRA 工具：Anima、SDXL 与 Krea 2 ✨_
   <a href="https://github.com/amenorira/lora-scripts-anima/blob/main/README-en.md">English</a>
 </p>
 
-lora-scripts-anima 是一款本地 LoRA 训练图形界面。项目通过训练核心注册表隔离不同后端：**sd-scripts** 负责 SDXL / Anima，**LyCORIS** 是通过 `lycoris.kohya` 挂载的可选适配器后端，**musubi-tuner** 负责 Krea 2 RAW DiT LoRA。
+项目通过训练核心注册表隔离不同后端；**LyCORIS** 是通过 `lycoris.kohya` 挂载的可选适配器后端。
 
 ### 支持的模型类型
 
@@ -54,8 +54,6 @@ lora-scripts-anima 是一款本地 LoRA 训练图形界面。项目通过训练�
 <a name="pre-training-previews"></a>
 
 ## 训练前预览
-
-训练表单里的三个预览弹窗都用当前参数在本地计算，不会启动训练，也不会修改 TOML。
 
 ### 时间步分布预览
 
@@ -110,7 +108,7 @@ lora-scripts-anima/
 - **PyTorch 2.10.0 + CUDA 13.0**：由启动脚本自动安装，兼容 RTX 30/40/50 全系列
 - **NVIDIA 驱动 R580 或更高版本**：CUDA 13.0 的最低驱动要求
 
-> **Windows 用户无需提前安装 Python/Git。** 首次运行 `start.bat` 时，启动器会寻找 64 位 Python 3.12，并跳过 Microsoft Store 的 Python 占位符。
+> **Windows 用户无需提前安装 Python。** 首次运行 `start.bat` 时，启动器会寻找 64 位 Python 3.12，并跳过 Microsoft Store 的 Python 占位符。
 >
 > 如果电脑只有 Python 3.13/3.14，可按提示为当前用户并行安装官方 Python 3.12。启动器不会卸载现有 Python，也不会修改系统默认 Python。下载时会显示进度、文件大小、速度和 ETA；静默安装阶段会显示加载动画。
 >
@@ -161,11 +159,9 @@ cd lora-scripts-anima
 
 首次启动会自动创建虚拟环境并安装所有依赖。启动后 GUI 自动打开 [http://127.0.0.1:12333](http://127.0.0.1:12333)。
 
-> **RTX 40/50 系显卡用户**：启动脚本会自动检测 flash_attn 状态。如未安装，可在 GUI 的 **环境** 标签页中一键安装。
-
 ### 实时连接与慢速远程连接
 
-网页的 HTTP 请求和实时连接始终与当前页面同源（same-origin）。训练器不会自动配置 SSH、端口映射、代理、云平台专用逻辑或额外的实时端口。如果你已经通过自己的方案访问远程页面，浏览器会继续沿用该入口。
+网页的 HTTP 请求和实时连接始终与当前页面同源（same-origin）。训练器不会自动配置 SSH、端口映射、代理、云平台专用逻辑或额外的实时端口。
 
 - `/ws/realtime` 仅传递小型 JSON 状态、进度、日志增量和硬件数据；命令、图片、文件和元数据仍使用 HTTP。
 - 侧栏只有在收到 WebSocket `ready` 消息和实时快照后，才会显示“后端已连接”。连续 2 秒没有有效实时数据时，只显示“实时数据延迟”；连接关闭且健康探测也失败后，才显示“后端离线”。
@@ -210,11 +206,11 @@ cd lora-scripts-anima
 
 ## Flash Attention 加速
 
-RTX 40/50 系显卡推荐安装 flash_attn 以获得最佳训练性能。
+RTX 40/50 系显卡推荐安装 flash_attn 以获得最佳训练性能。启动脚本会自动检测安装状态。
 
 ### GUI 安装
 
-启动 GUI 后，在 **环境** 标签页中点击安装即可。脚本面向 Python 3.12 + PyTorch 2.10+cu130 固定基线，通过多镜像回退下载预编译 wheel（断点续传 + 本地缓存），支持离线直装本地 .whl。
+启动 GUI 后，在 **环境** 标签页中点击安装即可，也支持离线安装本地 `.whl`。
 
 ### 手动安装
 
@@ -238,7 +234,7 @@ Linux：
 
 ## EmoSens 自适应优化器
 
-项目内置了 EmoSens v3.9 自适应优化器（`vendor/emo_optimizer/`），对 Anima DiT 模型训练有更好的收敛效果。
+内置的 EmoSens v3.9 位于 `vendor/emo_optimizer/`。
 
 ### 推荐设置
 
@@ -250,8 +246,6 @@ Linux：
 在训练表单的优化器下拉菜单中选择 `EmoSens` 即可使用。
 
 ## TOML 配置导入导出
-
-支持将当前训练参数导出为 TOML 文件，并从 TOML 文件导入到训练表单。
 
 - **导出**：在训练页右侧参数预览中下载当前 TOML 配置
 - **导入**：选择 TOML 文件，将有效字段填入对应训练类型的表单
